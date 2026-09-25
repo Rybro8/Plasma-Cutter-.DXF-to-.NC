@@ -209,10 +209,56 @@ def normalize(paths: list[Path]):
     return paths
 
 
-def _lead_vector(p1, p2, length):
-    dx, dy = p2[0] - p1[0], p2[1] - p1[1]
-    d = math.hypot(dx, dy) or 1.0
-    return (dx / d * length, dy / d * length)
+def _start_at_longest_edge(pts):
+    """Rotate a closed path so it starts at the midpoint of its longest edge, keeping
+    the pierce and lead-in away from corners. Returns (points, edge_unit_direction)."""
+    ring = pts[:-1] if pts[0] == pts[-1] else list(pts)
+    n = len(ring)
+    i = max(range(n), key=lambda k: _dist(ring[k], ring[(k + 1) % n]))
+    a, b = ring[i], ring[(i + 1) % n]
+    d = _dist(a, b) or 1.0
+    mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+    rotated = [mid] + ring[i + 1:] + ring[:i + 1] + [mid]
+    return rotated, ((b[0] - a[0]) / d, (b[1] - a[1]) / d)
+
+
+def _scrap_point(start, direction, length, polygon, want_inside):
+    """Offset `start` by `length` along `direction`, shrinking until the point lands on
+    the scrap side of `polygon` (inside a hole, outside a profile). None if it can't."""
+    while length > 1e-3:
+        pt = (start[0] + direction[0] * length, start[1] + direction[1] * length)
+        if _point_in_poly(pt, polygon) == want_inside:
+            return pt
+        length /= 2
+    return None
+
+
+def _closed_leads(path: Path, settings: Settings):
+    """Return (entry_point, cut_points) for a closed contour with lead-in/lead-out on
+    the scrap side: outside for outer profiles, inside for holes."""
+    pts, (tx, ty) = _start_at_longest_edge(path.points)
+    start = pts[0]
+    is_hole = path.depth % 2 == 1
+
+    # The left-hand normal of the edge direction points into a CCW polygon; figure out
+    # which side is scrap by probing rather than trusting winding order.
+    normal = (-ty, tx)
+    probe = (start[0] + normal[0] * 1e-3, start[1] + normal[1] * 1e-3)
+    if _point_in_poly(probe, pts) != is_hole:
+        normal = (-normal[0], -normal[1])
+
+    lead_in = _scrap_point(start, normal, settings.lead_in_length, pts, is_hole)
+    entry = lead_in or start
+
+    cut_points = list(pts)
+    if settings.lead_out_length > 0:
+        # Exit at 45 degrees: forward along the edge and off into the scrap.
+        diag = ((tx + normal[0]) / math.sqrt(2), (ty + normal[1]) / math.sqrt(2))
+        lead_out = _scrap_point(start, diag, settings.lead_out_length, pts, is_hole)
+        if lead_out:
+            cut_points.append(lead_out)
+
+    return entry, cut_points
 
 
 def build_gcode(paths: list[Path], settings: Settings) -> str:
@@ -229,13 +275,7 @@ def build_gcode(paths: list[Path], settings: Settings) -> str:
             continue
 
         if path.closed:
-            start = pts[0]
-            lead_dx, lead_dy = _lead_vector(pts[1], pts[0], settings.lead_in_length)
-            lead_in_pt = (start[0] - lead_dx, start[1] - lead_dy)
-            end_dx, end_dy = _lead_vector(pts[-2], pts[-1], settings.lead_out_length)
-            lead_out_pt = (pts[-1][0] + end_dx, pts[-1][1] + end_dy)
-            cut_points = pts + [lead_out_pt]
-            entry_pt = lead_in_pt
+            entry_pt, cut_points = _closed_leads(path, settings)
         else:
             entry_pt = pts[0]
             cut_points = pts
