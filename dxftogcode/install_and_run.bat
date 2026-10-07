@@ -1,7 +1,7 @@
 @echo off
 rem dxftogcode installer + launcher.
 rem First run: finds (or installs) Python, creates .venv, installs dependencies.
-rem Every run: starts the server and opens the app in the browser.
+rem Every run: checks GitHub for updates, then starts the server and opens the app in the browser.
 setlocal
 cd /d "%~dp0"
 
@@ -39,6 +39,10 @@ if errorlevel 1 (
 )
 
 :deps
+rem Check GitHub for a newer version. The updater may replace this file, so the check
+rem and the restart into the new copy must stay on one line (cmd reads .bat files lazily).
+if /i not "%~1"=="noupdate" ("%VENV_PY%" updater.py & if errorlevel 10 "%~f0" noupdate)
+
 echo [3/3] Installing dependencies...
 "%VENV_PY%" -m pip install --disable-pip-version-check -q --upgrade pip
 "%VENV_PY%" -m pip install --disable-pip-version-check -q -r backend\requirements.txt

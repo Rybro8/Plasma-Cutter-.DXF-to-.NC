@@ -39,12 +39,14 @@ def convert_route():
         return jsonify({"error": "No DXF file selected."}), 400
 
     settings = Settings(
-        units=request.form.get("units", "mm"),
-        kerf_width=_float(request.form, "kerf_width", 1.0),
+        units=request.form.get("units", "in"),
+        kerf_width=_float(request.form, "kerf_width", 0.06),
+        feed_rate=_float(request.form, "feed_rate", 100.0),
         pierce_delay=_float(request.form, "pierce_delay", 0.0),
-        lead_in_length=_float(request.form, "lead_in_length", 3.0),
-        lead_out_length=_float(request.form, "lead_out_length", 3.0),
-        segment_tolerance=_float(request.form, "segment_tolerance", 0.05),
+        lead_in_length=_float(request.form, "lead_in_length", 0.2),
+        lead_out_length=_float(request.form, "lead_out_length", 0.2),
+        thc_off_length=_float(request.form, "thc_off_length", 0.0),
+        segment_tolerance=_float(request.form, "segment_tolerance", 0.002),
         normalize_origin=request.form.get("normalize_origin", "true") == "true",
     )
 
@@ -53,7 +55,9 @@ def convert_route():
         tmp_path = tmp.name
 
     try:
-        gcode = convert(tmp_path, settings)
+        # Brackets would end the WinCNC comment early.
+        source_name = file.filename.replace("[", "(").replace("]", ")")
+        gcode = convert(tmp_path, settings, source_name)
     except ConversionError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:

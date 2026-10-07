@@ -12,6 +12,24 @@ const ctx = canvas.getContext("2d");
 let lastGcode = "";
 let lastFilename = "output.nc";
 
+// Length settings are in drawing units, so each unit needs its own defaults.
+const UNIT_DEFAULTS = {
+  in: { feed_rate: 100, kerf_width: 0.06, lead_in_length: 0.2, lead_out_length: 0.2, thc_off_length: 4, segment_tolerance: 0.002 },
+  mm: { feed_rate: 2540, kerf_width: 1.5, lead_in_length: 5, lead_out_length: 5, thc_off_length: 100, segment_tolerance: 0.05 },
+};
+let currentUnits = settingsForm.elements["units"].value;
+
+settingsForm.elements["units"].addEventListener("change", (e) => {
+  const from = UNIT_DEFAULTS[currentUnits];
+  const to = UNIT_DEFAULTS[e.target.value];
+  for (const [name, value] of Object.entries(to)) {
+    const input = settingsForm.elements[name];
+    // Only swap fields still at the old unit's default; keep anything the user typed.
+    if (parseFloat(input.value) === from[name]) input.value = value;
+  }
+  currentUnits = e.target.value;
+});
+
 fileInput.addEventListener("change", () => {
   const f = fileInput.files[0];
   fileStatus.textContent = f ? `Selected: ${f.name} (${(f.size / 1024).toFixed(1)} KB)` : "";
