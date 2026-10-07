@@ -77,9 +77,9 @@ function drawPreview(gcode) {
 
   for (const rawLine of gcode.split("\n")) {
     const line = rawLine.trim();
-    if (!line || line.startsWith("(")) continue;
-    if (line === "M3") { torchOn = true; continue; }
-    if (line === "M5") { torchOn = false; continue; }
+    if (!line || line.startsWith("[")) continue;
+    if (line === "M61") { torchOn = true; continue; }
+    if (line === "M62") { torchOn = false; continue; }
 
     const isRapid = line.startsWith("G0");
     const isFeed = line.startsWith("G1");

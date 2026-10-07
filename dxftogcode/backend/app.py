@@ -41,7 +41,7 @@ def convert_route():
     settings = Settings(
         units=request.form.get("units", "mm"),
         kerf_width=_float(request.form, "kerf_width", 1.0),
-        pierce_delay=_float(request.form, "pierce_delay", 0.4),
+        pierce_delay=_float(request.form, "pierce_delay", 0.0),
         lead_in_length=_float(request.form, "lead_in_length", 3.0),
         lead_out_length=_float(request.form, "lead_out_length", 3.0),
         segment_tolerance=_float(request.form, "segment_tolerance", 0.05),
